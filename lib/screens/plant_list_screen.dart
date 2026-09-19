@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/plant_species.dart';
 import '../providers/plant_repository_provider.dart';
 import '../providers/plants_provider.dart';
 import '../providers/thirsty_only_provider.dart';
@@ -24,7 +25,8 @@ import '../widgets/staggered_fade_in.dart';
 /// -----------------------------------------------------------------------
 /// This is Sprout's real, Riverpod-powered screen. It combines two
 /// watched providers (plantsProvider + thirstyOnlyProvider) into one UI,
-/// and lets you add a plant that appears without a hot restart.
+/// and lets you add a plant — picking its species and how thirsty it
+/// starts out — that appears without a hot restart.
 ///
 /// CP3 do this:
 ///   1. Watch plantsProvider -> an AsyncValue<List<Plant>>.
@@ -34,11 +36,13 @@ import '../widgets/staggered_fade_in.dart';
 ///
 /// CP4 do this (inside _onAddPlantPressed below):
 ///   1. Read the repository with ref.read(plantRepositoryProvider).
-///   2. Call repo.addPlant(name).
+///   2. Call repo.addPlant(name: ..., emoji: ..., wateringInterval: ...,
+///      daysAgoWatered: ...) — the values come from the _AddPlantSheet
+///      result, already collected for you below.
 ///   3. Call ref.invalidate(plantsProvider) to force a refetch.
 ///
 /// Everything else on this screen — the AppBar, the filter pill, the
-/// empty states, the dialog styling — is already done for you.
+/// add-plant sheet, the empty states — is already done for you.
 /// -----------------------------------------------------------------------
 class PlantListScreen extends ConsumerWidget {
   const PlantListScreen({super.key});
@@ -77,8 +81,8 @@ class PlantListScreen extends ConsumerWidget {
       //       return visible.isEmpty
       //           ? EmptyState(
       //               image: thirstyOnly
-      //                   ? 'assets/images/all_watered.png'
-      //                   : 'assets/images/empty_garden.png',
+      //                   ? 'assets/images/all_watered.jpeg'
+      //                   : 'assets/images/empty_garden.jpeg',
       //               title: thirstyOnly ? 'Nothing thirsty!' : 'No plants yet',
       //               message: thirstyOnly
       //                   ? 'Every plant has had a drink recently.'
@@ -94,6 +98,9 @@ class PlantListScreen extends ConsumerWidget {
       //                   onWater: () => ref
       //                       .read(plantRepositoryProvider)
       //                       .waterPlant(visible[i].id),
+      //                   onDelete: () => ref
+      //                       .read(plantRepositoryProvider)
+      //                       .deletePlant(visible[i].id),
       //                 ),
       //               ),
       //             );
@@ -111,40 +118,149 @@ class PlantListScreen extends ConsumerWidget {
   }
 
   Future<void> _onAddPlantPressed(BuildContext context, WidgetRef ref) async {
-    final nameController = TextEditingController();
-    final name = await showDialog<String>(
+    // The picker sheet is already built for you — it hands back a name,
+    // a chosen species (with its emoji + watering interval), and how
+    // thirsty the plant should start out.
+    final result = await showModalBottomSheet<_NewPlantSpec>(
       context: context,
-      builder: (context) => AlertDialog(
-        icon: const CircleAvatar(
-          radius: 22,
-          backgroundColor: AppColors.leafSoft,
-          child: Text('\u{1F331}', style: TextStyle(fontSize: 22)),
-        ),
-        title: const Text('Add a plant'),
-        content: TextField(
-          controller: nameController,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'e.g. Fiddle Leaf Fig'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, nameController.text.trim()),
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _AddPlantSheet(),
     );
 
-    if (name == null || name.isEmpty) return;
+    if (result == null) return;
 
     // TODO (CP4):
-    //   1. await ref.read(plantRepositoryProvider).addPlant(name)
-    //   2. ref.invalidate(plantsProvider)
+    //   1. await ref.read(plantRepositoryProvider).addPlant(
+    //        name: result.name,
+    //        emoji: result.species.emoji,
+    //        wateringInterval: result.species.wateringInterval,
+    //        daysAgoWatered: result.thirst.daysAgoFor(result.species.wateringInterval),
+    //      );
+    //   2. ref.invalidate(plantsProvider);
+  }
+}
+
+class _NewPlantSpec {
+  const _NewPlantSpec(
+      {required this.name, required this.species, required this.thirst});
+  final String name;
+  final PlantSpecies species;
+  final InitialThirst thirst;
+}
+
+/// The "add a plant" bottom sheet — DONE, no edits needed.
+class _AddPlantSheet extends StatefulWidget {
+  const _AddPlantSheet();
+
+  @override
+  State<_AddPlantSheet> createState() => _AddPlantSheetState();
+}
+
+class _AddPlantSheetState extends State<_AddPlantSheet> {
+  final _nameController = TextEditingController();
+  PlantSpecies _species = kPlantSpecies.first;
+  InitialThirst _thirst = InitialThirst.fresh;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xl, AppSpacing.lg, AppSpacing.xl, AppSpacing.xl),
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius:
+              BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+                decoration: BoxDecoration(
+                    color: AppColors.line,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Text('Add a plant', style: AppTypography.headline),
+            const SizedBox(height: AppSpacing.lg),
+            TextField(
+              controller: _nameController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(hintText: 'Give it a name'),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Type',
+                style: AppTypography.label.copyWith(color: AppColors.muted)),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: kPlantSpecies.map((species) {
+                final selected = species == _species;
+                return ChoiceChip(
+                  label: Text('${species.emoji} ${species.label}'),
+                  selected: selected,
+                  onSelected: (_) => setState(() => _species = species),
+                  selectedColor: AppColors.leafSoft,
+                  backgroundColor: AppColors.lineSoft,
+                  labelStyle: AppTypography.body.copyWith(
+                    fontSize: 13,
+                    color: selected ? AppColors.leafDeep : AppColors.ink,
+                  ),
+                  side: BorderSide.none,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text('How thirsty is it right now?',
+                style: AppTypography.label.copyWith(color: AppColors.muted)),
+            const SizedBox(height: AppSpacing.sm),
+            SegmentedButton<InitialThirst>(
+              segments: InitialThirst.values
+                  .map((t) => ButtonSegment(
+                      value: t,
+                      label:
+                          Text(t.label, style: const TextStyle(fontSize: 12))))
+                  .toList(),
+              selected: {_thirst},
+              onSelectionChanged: (s) => setState(() => _thirst = s.first),
+              style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  final name = _nameController.text.trim();
+                  if (name.isEmpty) return;
+                  Navigator.pop(
+                    context,
+                    _NewPlantSpec(
+                        name: name, species: _species, thirst: _thirst),
+                  );
+                },
+                child: const Text('Add plant'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -162,7 +278,8 @@ class _ThirstyFilterPill extends StatelessWidget {
       child: AnimatedContainer(
         duration: AppMotion.medium,
         curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
           color: value ? AppColors.thirstyBg : AppColors.lineSoft,
           borderRadius: BorderRadius.circular(AppRadius.pill),
@@ -211,7 +328,8 @@ class _ErrorPanel extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             Text('Couldn’t load your plants', style: AppTypography.title),
             const SizedBox(height: AppSpacing.xs),
-            Text(message, style: AppTypography.bodyMuted, textAlign: TextAlign.center),
+            Text(message,
+                style: AppTypography.bodyMuted, textAlign: TextAlign.center),
           ],
         ),
       ),

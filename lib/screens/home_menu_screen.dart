@@ -29,35 +29,24 @@ class HomeMenuScreen extends StatelessWidget {
             backgroundColor: AppColors.background,
             surfaceTintColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
-              titlePadding: const EdgeInsets.only(left: AppSpacing.lg, bottom: AppSpacing.md),
+              titlePadding: const EdgeInsets.only(
+                  left: AppSpacing.lg, bottom: AppSpacing.md),
               title: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Image.asset('assets/images/sprout_logo.png', width: 28, height: 28),
+                  Image.asset('assets/images/sprout_logo.jpeg',
+                      width: 40, height: 40),
                   const SizedBox(width: AppSpacing.sm),
                   Text('Sprout', style: AppTypography.headline),
                 ],
               ),
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset('assets/images/garden_banner.png', fit: BoxFit.cover),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, AppColors.background.withOpacity(0.92)],
-                        stops: const [0.4, 1],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              background: Image.asset('assets/images/garden_banner.jpeg',
+                  fit: BoxFit.cover),
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xl),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xl),
             sliver: SliverList.list(
               children: [
                 Text(
@@ -120,11 +109,13 @@ class HomeMenuScreen extends StatelessWidget {
       transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (_, animation, __) => screen,
       transitionsBuilder: (_, animation, __, child) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final curved =
+            CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
         return FadeTransition(
           opacity: curved,
           child: SlideTransition(
-            position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(curved),
+            position: Tween(begin: const Offset(0, 0.04), end: Offset.zero)
+                .animate(curved),
             child: child,
           ),
         );
@@ -177,7 +168,10 @@ class _MenuTileState extends State<_MenuTile> {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(
                 children: [
-                  IconBadge(icon: widget.icon, color: widget.color, background: widget.background),
+                  IconBadge(
+                      icon: widget.icon,
+                      color: widget.color,
+                      background: widget.background),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(

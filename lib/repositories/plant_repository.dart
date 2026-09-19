@@ -64,15 +64,24 @@ class PlantRepository {
   Stream<List<Plant>> watchPlants() => _controller.stream;
 
   /// Adds a new plant to the collection and notifies listeners.
-  Future<void> addPlant(String name) async {
+  ///
+  /// `daysAgoWatered` lets the caller decide how "used" the plant already
+  /// is the moment it's added — 0 means freshly watered (happy), a number
+  /// past the species' `wateringInterval` means it starts out thirsty.
+  Future<void> addPlant({
+    required String name,
+    required String emoji,
+    required Duration wateringInterval,
+    int daysAgoWatered = 0,
+  }) async {
     await Future.delayed(const Duration(milliseconds: 300)); // pretend network hop
-    const emojis = ['\u{1F331}', '\u{1F33B}', '\u{1F340}', '\u{1F33F}', '\u{1FAB4}'];
     _plants.add(
       Plant(
         id: 'p${_plants.length + 1}_${_random.nextInt(9999)}',
         name: name,
-        emoji: emojis[_random.nextInt(emojis.length)],
-        lastWatered: DateTime.now(),
+        emoji: emoji,
+        lastWatered: DateTime.now().subtract(Duration(days: daysAgoWatered)),
+        wateringInterval: wateringInterval,
       ),
     );
     _emit();
@@ -83,6 +92,12 @@ class PlantRepository {
     final index = _plants.indexWhere((p) => p.id == id);
     if (index == -1) return;
     _plants[index] = _plants[index].copyWith(lastWatered: DateTime.now());
+    _emit();
+  }
+
+  /// Removes a plant from the collection and notifies listeners.
+  Future<void> deletePlant(String id) async {
+    _plants.removeWhere((p) => p.id == id);
     _emit();
   }
 
